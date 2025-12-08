@@ -1,0 +1,78 @@
+% MotionGenesis file: launcher_two_link.txt
+cd
+%-------------------------------------------------------------------------------
+NewtonianFrame N
+Point No
+RigidBody A          % motor-driven handle (Link A)
+RigidBody B          % flexible sling (Link B)
+Particle Ball        % tennis ball idealized as point mass
+
+%-------------------------------------------------------------------------------
+Variable  phi,  phi',  phi''        % absolute handle angle (+Nz> CCW)
+Variable  theta, theta', theta''    % relative Link B angle w.r.t. Link A
+Specified tau                       % applied motor torque (<= 0.7 N*m)
+
+Constant g   = 9.81 m/s^2
+Constant mBall = 0.06 kg
+Constant LA  = 0.050 m            % Link A length
+Constant LB  = 0.450 m            % Link B length  (LA + LB = 0.50 m)
+
+% lightweight carbon-fiber rectangular handle (10 mm x 1.5 mm)
+Constant widthA = 0.010 m
+Constant thickA = 0.0015 m
+Constant densCF = 1600 kg/m^3
+Constant areaA  = widthA*thickA
+Constant mA     = densCF*areaA*LA
+Constant IAcm   = mA*LA^2/12
+A.SetMassInertia( mA, IAxx = IAcm, IAyy = IAcm, IAzz = IAcm )
+
+% carbon-fiber circular Link B (radius 2 mm)
+Constant rB      = 0.002 m
+Constant areaB   = pi*rB^2
+Constant mB      = densCF*areaB*LB
+Constant IBcm    = mB*LB^2/12
+B.SetMassInertia( mB, IBxx = IBcm, IByy = IBcm, IBzz = IBcm )
+
+% rotational spring stiffness k = E*J/LB with E = 125 GPa, J = 0.5*pi*r^4
+Constant ECF  = 125e9 N/m^2
+Constant JB   = 0.5*pi*rB^4
+Constant k    = ECF*JB/LB         % N*m/rad
+
+%-------------------------------------------------------------------------------
+% Rotational kinematics
+A.RotateZ( N, phi )
+B.RotateZ( A, theta )
+
+%-------------------------------------------------------------------------------
+% Translational kinematics and mass-centre locations
+Ao.Translate( No, 0*Nx> )
+Acm.Translate( Ao, 0.5*LA*Ax> )
+Bo.Translate( Ao, LA*Ax> )
+Bcm.Translate( Bo, 0.5*LB*Bx> )
+Ball.Translate( Bo, LB*Bx> )
+
+%-------------------------------------------------------------------------------
+System.AddForceGravity( -g*Ny> )
+A.AddTorque( N,  tau*(+Nz>) )
+B.AddTorque( A, -k*theta*(+Nz>) )    % spring resists positive theta
+
+%-------------------------------------------------------------------------------
+Dynamics[1] = Dot( Nz>, System(A,B,Ball).GetMoment( Ao ) ) - tau
+Dynamics[2] = Dot( Nz>, System(B,Ball).GetMoment( Bo ) ) + k*theta
+
+%-------------------------------------------------------------------------------
+Input tFinal = 1.2, tStep = 0.002, absError = 1.0E-08
+Input tau = 0.7 N*m
+Input phi  = 0 deg, phi' = 0 rad/s
+Input theta = -0.3 deg, theta' = 0 rad/s
+
+% release condition: ball crosses vertical axis when phi reaches 90 deg
+Input releaseAngle = 90 deg
+
+SpeedBall   = Magnitude( Ball.GetVelocity( N ) )
+AngleHandle = phi
+
+OutputEncode SpeedBall m/s, AngleHandle deg
+Algebraic( Dynamics = 0, phi'', theta'' )
+Code Algebraic( Dynamics = 0, phi'', theta'' ) launcher_dynamics.m( phi, phi', phi'', theta, theta', theta'', tau )
+launcher_integrator.m
