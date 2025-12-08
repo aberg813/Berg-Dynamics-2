@@ -29,10 +29,11 @@ MATERIALS = {
     "steel": Material("AISI 1080 Steel", density=7850.0, youngs_modulus=200e9),
     "carbon_fiber": Material("Unidirectional Carbon Fiber", density=1600.0, youngs_modulus=125e9),
 }
+MATERIAL_NAME_LOOKUP = {mat.name: key for key, mat in MATERIALS.items()}
 
 GEOMETRY = {
-    "A": Geometry("rect", {"width": 0.015, "thickness": 0.002}),
-    "B": Geometry("circle", {"radius": 0.008}),
+    "A": Geometry("rect", {"width": 0.01, "thickness": 0.0015}),
+    "B": Geometry("circle", {"radius": 0.01}),
 }
 
 g = 9.81
@@ -357,10 +358,9 @@ def plot_torque_balance(theta_vals: np.ndarray, balance_vals: np.ndarray, fig_di
     plt.close(fig)
 
 
-def sweep_design_space(LA_values, radius_values, materials_B) -> pd.DataFrame:
+def sweep_design_space(LA_values, radius_values, materials_B, materials_A=("aluminum",)) -> pd.DataFrame:
     records = []
     funcs = build_symbolic_model()
-    x_ball = funcs["x_ball"]
 
     for LA in LA_values:
         LB = 0.5 - LA
@@ -369,32 +369,35 @@ def sweep_design_space(LA_values, radius_values, materials_B) -> pd.DataFrame:
         for radius in radius_values:
             geom_B = Geometry("circle", {"radius": radius})
             for material_key in materials_B:
-                params = assemble_parameters(LA, LB, geom_B, material_B=material_key)
-                try:
-                    theta0 = find_theta_equilibrium(params)
-                    release_state, _ = simulate_release(params, theta0)
-                    record = {
-                        "LA": LA,
-                        "LB": LB,
-                        "radius": radius,
-                        "material_B": MATERIALS[material_key].name,
-                        "theta0_deg": np.degrees(theta0),
-                        "release_speed": release_state["speed"],
-                        "release_time": release_state["time"],
-                    }
-                    records.append(record)
-                except Exception as exc:  # noqa: PERF203
-                    record = {
-                        "LA": LA,
-                        "LB": LB,
-                        "radius": radius,
-                        "material_B": MATERIALS[material_key].name,
-                        "theta0_deg": np.nan,
-                        "release_speed": np.nan,
-                        "release_time": np.nan,
-                        "note": str(exc),
-                    }
-                    records.append(record)
+                for matA in materials_A:
+                    params = assemble_parameters(LA, LB, geom_B, material_A=matA, material_B=material_key)
+                    try:
+                        theta0 = find_theta_equilibrium(params)
+                        release_state, _ = simulate_release(params, theta0)
+                        record = {
+                            "LA": LA,
+                            "LB": LB,
+                            "radius": radius,
+                            "material_B": MATERIALS[material_key].name,
+                            "material_A": MATERIALS[matA].name,
+                            "theta0_deg": np.degrees(theta0),
+                            "release_speed": release_state["speed"],
+                            "release_time": release_state["time"],
+                        }
+                        records.append(record)
+                    except Exception as exc:  # noqa: PERF203
+                        record = {
+                            "LA": LA,
+                            "LB": LB,
+                            "radius": radius,
+                            "material_B": MATERIALS[material_key].name,
+                            "material_A": MATERIALS[matA].name,
+                            "theta0_deg": np.nan,
+                            "release_speed": np.nan,
+                            "release_time": np.nan,
+                            "note": str(exc),
+                        }
+                        records.append(record)
     df = pd.DataFrame(records)
     return df
 
