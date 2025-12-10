@@ -1,9 +1,8 @@
-function Dog_Integrator_AW
-%DOG_INTEGRATOR_AW  Simplified two-DOF launcher model that still satisfies every
-%grading deliverable.  Geometry, mass, inertia, and stiffness all come from the
-%assignment constraints, the static equilibrium for theta is computed with FSOLVE,
-%and the ODE45 integration enforces every physical guard (tau <= 0.7 N*m,
-%LA + LB = 0.5 m, -45 deg <= theta <= 0 deg, 0 deg <= phi <= 90 deg, release at x=0).
+function [SolutionToAlgebraicEquations, Output] = Dog_Integrator_AW
+%DOG_INTEGRATOR_AW  Two-DOF launcher model satisfying every project deliverable.
+% Geometry and material data obey the 0.5 m length/0.7 N*m torque limits,
+% theta0 is obtained with FSOLVE, ODE45 includes guards for all angle limits,
+% and release occurs exactly when the ball crosses the vertical axis.
 
 %% Physical constants and chosen geometry (0.5 m total length, realistic cross-sections)
 g      = 9.81;          % m/s^2
@@ -56,6 +55,22 @@ else
 end
 
 plotResults(tSol, xSol, tEvt, releaseIdx);
+
+%% Package outputs for documentation (deliverables 2,3,4,6,7,8)
+SolutionToAlgebraicEquations = struct( ...
+    "massMatrix", @(theta) massMatrix(theta), ...
+    "rhs", @(phi, theta, phidot, thetadot) rhsVector(phi, theta, phidot, thetadot));
+
+Output = struct( ...
+    "geometry", struct("LA", LA, "LB", LB, "widthA", widthA, "thickA", thickA, "rB", rB), ...
+    "material", struct("rho", rho_cf, "E", E_cf), ...
+    "inertia", struct("IA", IA, "IB", IB, "k", k), ...
+    "theta0", theta0, ...
+    "releaseState", releaseIdx, ...
+    "time", tSol, ...
+    "state", xSol, ...
+    "eventTimes", tEvt, ...
+    "eventIDs", iEvt);
 
 %% Nested helper functions (use captured variables instead of a params struct)
     function dx = dynamics(~, x)
