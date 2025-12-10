@@ -1,0 +1,10 @@
+{
+  "LA": 0.22,
+  "LB": 0.28,
+  "radius": 0.013,
+  "material_B": "AISI 1080 Steel",
+  "theta0_deg": -0.0031602904441478995,
+  "release_speed": 3.08960520372488,
+  "release_time": 0.4045618932428689,
+  "note": NaN
+}
